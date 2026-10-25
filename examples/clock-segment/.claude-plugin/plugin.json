@@ -1,0 +1,6 @@
+{
+  "name": "status-bar-clock",
+  "version": "0.1.0",
+  "description": "An example status-bar segment: the wall clock, as `clock 14:05`.",
+  "dependencies": ["status-bar"]
+}

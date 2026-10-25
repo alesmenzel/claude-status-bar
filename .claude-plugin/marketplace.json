@@ -1,0 +1,16 @@
+{
+  "name": "alesmenzel",
+  "owner": {
+    "name": "Ales Menzel"
+  },
+  "metadata": {
+    "description": "Claude Code mods by Ales Menzel."
+  },
+  "plugins": [
+    {
+      "name": "status-bar",
+      "source": "./",
+      "description": "The missing status bar for Claude Code, showing usage: 5h/7d rate limits with reset times, context fill, session cost and the prompt cache timer."
+    }
+  ]
+}

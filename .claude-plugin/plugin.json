@@ -1,0 +1,47 @@
+{
+  "name": "status-bar",
+  "version": "0.2.0",
+  "description": "The missing status bar for Claude Code, showing usage: 5h/7d rate limits with reset times, context fill, session cost and the prompt cache timer. Other mods can add segments.",
+  "author": { "name": "Ales Menzel" },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "show": {
+      "type": "boolean",
+      "title": "Show the bar",
+      "description": "Off hides the bar. /status-bar on|off|toggle hides or shows it at runtime.",
+      "default": true
+    },
+    "position": {
+      "type": "string",
+      "title": "Position",
+      "description": "above: the band directly above the prompt. below: under the prompt, after the hint line. status: plain text in the status line under the prompt.",
+      "default": "above",
+      "options": ["above", "below", "status"]
+    },
+    "segments": {
+      "type": "string",
+      "title": "Segments",
+      "description": "The segments to show, in order. Commas separate groups spread over the width; + joins segments in one group. Built-ins: limit5h, limit7d, limitSpend, ctx, legend, cost, cache. Hovering ctx shows its legend; add legend (ctx+legend) to show it beside the meter where there is no mouse. Ids of other mods' segments work too; unknown ids are ignored.",
+      "default": "limit5h+limit7d,ctx,cost,cache"
+    },
+    "budgetUsd": {
+      "type": "number",
+      "title": "Session budget (USD)",
+      "description": "A cost budget of your own for one conversation, in USD. Claude Code gives mods no account budget in dollars (only the spend limit's percentage, which the limitSpend segment shows), so 0 (the default) shows the session cost alone; above 0 the cost segment adds / $budget, a meter and the percentage.",
+      "default": 0
+    },
+    "contextLimit": {
+      "type": "number",
+      "title": "Context limit (tokens)",
+      "description": "A context ceiling of your own, in tokens, e.g. 256000: the ctx segment's window figure, meter and percentage count against it (62k/256k) instead of the model's window. Once the context goes past it, ctx shows the model's window again (320k/1.0M), with the window figure in magenta. A value above the model's window is ignored. 0 (the default) uses the model's window.",
+      "default": 0
+    },
+    "cacheTtl": {
+      "type": "string",
+      "title": "Prompt cache TTL",
+      "description": "The prompt cache lifetime the timer counts down from.",
+      "default": "1h",
+      "options": ["1h", "5m"]
+    }
+  }
+}
