@@ -30,14 +30,17 @@ export const limitsResetting = (fiveHour: number, sevenDay: number, resets: [str
   { kind: 'seven_day' as const, percentUsed: sevenDay, ...(resets[1] === undefined ? {} : { resetsAt: resets[1] }) },
 ]
 
-// A session with every figure.
+// A session with every figure, on a Pro or Max plan: 5h and 7d windows.
 export const FULL: BarData = {
-  rateLimits: [...limitsResetting(25, 50), { kind: 'spend_limit', percentUsed: 10 }],
+  rateLimits: limitsResetting(25, 50),
   context: { tokens: 62_000, window: 200_000, percent: 31 },
   split: { sys: 10_000, mcp: 10_000, tools: 20_000, conv: 20_000 },
   cost: { usd: 1.237 },
   lastResponseAt: 0,
 }
+
+// The same session on an Enterprise seat: a spend limit and no 5h or 7d window.
+export const ENTERPRISE: BarData = { ...FULL, rateLimits: limits(undefined, undefined, 10) }
 
 // A new session, or one right after /clear: no figures at all.
 export const EMPTY: BarData = { rateLimits: [] }

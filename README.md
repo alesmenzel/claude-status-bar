@@ -12,13 +12,15 @@ With the pointer over `ctx`, the legend shows in the same cells:
 | --- | --- |
 | `limit5h` | The 5-hour rate-limit window, as the last API response reported it, and its reset time in local 24h time: `5h ━━──────  25% ↻12:20`. |
 | `limit7d` | The 7-day rate-limit window and its reset day and time: `7d ━─────── 12% ↻Mon 09:00`. |
-| `limitSpend` | The account's spend-limit window as a percentage, when Claude Code reports one (gateway spend limits). Otherwise a placeholder. Not in the default bar. |
+| `limitSpend` | The account's spend limit as a percentage, when Claude Code reports one (an Enterprise seat's usage budget, a gateway spend limit): `spend ━───────  10%`. Claude Code gives no dollar figure. |
 | `ctx` | The context window fill, then the tokens the last main-thread turn added: `62k/200k  31% +4.1k`. Each cell has the color of the group that fills it. Hover over the segment to see the legend in its place (see below). The delta reads `+--` until the bar has an earlier figure to compare with (after the first or second turn). It starts again after `/clear` and is negative after a compaction. The percentage turns blue, orange and magenta above 50%, 75% and 90% of the window, or of `contextLimit` when that is lower. |
 | `legend` | The context split: system prompt and memory (`sys`), built-in tools (`tools`), MCP tools (`mcp`), messages (`conv`). Not in the default bar: use `ctx+legend` on a terminal without mouse support. |
 | `cost` | The session cost, for example `$1.24`. With a `budgetUsd` above 0, also the budget, a meter and the percentage: `$1.24 / $10 ━─────── 12%`. |
 | `cache` | The time (mm:ss) until the prompt cache expires, counted from the last main-thread response. |
 
-The `5h`, `7d`, spend and budget meters turn blue above 50%, orange above 75% and magenta above 90%. The cache timer uses the same colors for the elapsed part of the TTL. Segments show `--` placeholders until the data arrives, so the bar does not change shape. When the bar does not fit, it drops the `legend` segment and shrinks the context bar. Below 110 columns, or when that is not enough, it uses a narrow form without the 5h, 7d and budget meters, the reset times and the context delta. If the narrow form is too wide, the groups at the right go.
+The `5h`, `7d`, spend and budget meters turn blue above 50%, orange above 75% and magenta above 90%. The cache timer uses the same colors for the elapsed part of the TTL. Segments show `--` placeholders until the data arrives, so the bar does not change shape.
+
+**Plan detection.** The limit segments show only the windows that your account reports. A Pro or Max plan shows `5h` and `7d`. An Enterprise seat has no 5h or 7d window, so it shows `spend` in their place. Before the first API response, the bar shows the `5h` and `7d` placeholders. A window that the first response does not report goes away. An account that reports no window (for example an API key) shows no limit segment. When the bar does not fit, it drops the `legend` segment and shrinks the context bar. Below 110 columns, or when that is not enough, it uses a narrow form without the 5h, 7d and budget meters, the reset times and the context delta. If the narrow form is too wide, the groups at the right go.
 
 **Hover.** Move the pointer over `ctx` to see the legend (`■ sys  18k  ■ tools  30k …`) in the same cells, with no layout shift. Where the full legend does not fit, it is compact (`■ 18k ■ 30k …`). Hover works in the `above` and `below` positions, not in `status`. It needs a terminal that reports mouse movement.
 
@@ -63,7 +65,7 @@ Set the options in the `/config` menu, or in `settings.json` under `pluginConfig
 | --- | --- | --- |
 | `show` | `true` | `false` hides the bar. |
 | `position` | `above` | `above`: a band above the prompt. `below`: under the prompt, after the hint line. `status`: plain text in the status line. |
-| `segments` | `limit5h+limit7d,ctx,cost,cache` | `,` separates groups, which the bar spreads across the width. `+` joins segments in one group. Unknown ids are ignored. |
+| `segments` | `limit5h+limit7d+limitSpend,ctx,cost,cache` | `,` separates groups, which the bar spreads across the width. `+` joins segments in one group. Unknown ids are ignored. |
 | `budgetUsd` | `0` | An optional budget of your own for one conversation, in USD. `0`: the cost segment shows the spend only. Claude Code gives mods no account budget in dollars. |
 | `cacheTtl` | `1h` | `1h` or `5m`. |
 | `contextLimit` | `0` | A lower context limit of your own, in tokens, for example `256000`. When it is lower than the model's window, `ctx` counts against it (`62k/256k  24%`). When the context goes past it, `ctx` counts against the model's window again (`320k/1.0M  32%`) and shows the window figure in magenta. `0` or a value above the window: the model's window. |

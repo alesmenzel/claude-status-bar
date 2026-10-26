@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import type { BarData, Run } from '../hooks/register'
 import { compose, CTX_CELLS, fit, parseLayout, plainText, WIDE_COLUMNS, widthOf } from '../hooks/register'
-import { BUILTINS, ctxOf, EMPTY, FULL, HOUR, join, LAYOUT, limits, UTC } from './fixtures'
+import { BUILTINS, ctxOf, EMPTY, ENTERPRISE, FULL, HOUR, join, LAYOUT, limits, UTC } from './fixtures'
 
 const base = (data: BarData, columns: number, budgetUsd = 10) => ({ data, now: HOUR / 4, columns, budgetUsd, ttlMs: HOUR, localTime: UTC })
 const fitAt = (columns: number, data: BarData = FULL, layout = LAYOUT, budgetUsd = 10) =>
@@ -12,7 +12,7 @@ const ctxCellsOf = (groups: readonly (readonly Run[])[]) =>
   (texts(groups).join('').match(/[█░]/g) ?? []).length
 
 // Data with only some figures: limits and context, no split, cost or cache.
-const PARTIAL: BarData = { rateLimits: limits(80), context: { tokens: 150_000, window: 200_000, percent: 75 } }
+const PARTIAL: BarData = { rateLimits: limits(80, 40), context: { tokens: 150_000, window: 200_000, percent: 75 } }
 
 describe('compose', () => {
   test('joins segments of a group with two spaces', async () => {
@@ -78,6 +78,11 @@ describe('fit', () => {
     expect(texts(groups)[2]).toBe('   $1.24 / $10  12%')
     expect(ctxCellsOf(fitAt(80))).toBe(9)
     expect(ctxCellsOf(fitAt(77))).toBe(6)
+  })
+
+  test('draws the spend limit in place of the 5h and 7d windows on an Enterprise seat', async () => {
+    expect(texts(fitAt(260, ENTERPRISE))[0]).toBe('spend ━───────  10%')
+    expect(texts(fitAt(100, ENTERPRISE))[0]).toBe('spend  10%')
   })
 
   test('is always narrow below 110 columns, even where the wide form fits', async () => {

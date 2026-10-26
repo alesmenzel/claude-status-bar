@@ -54,7 +54,7 @@ export const configRow = (
 export const statusBarRows = (provider = 'status-bar@inline'): ConfigRow[] => [
   configRow('show', true, provider, 'boolean'),
   configRow('position', 'above', provider, 'choice'),
-  configRow('segments', 'limit5h+limit7d,ctx,cost,cache', provider),
+  configRow('segments', 'limit5h+limit7d+limitSpend,ctx,cost,cache', provider),
   configRow('budgetUsd', 10, provider, 'number'),
   configRow('cacheTtl', '1h', provider, 'choice'),
 ]

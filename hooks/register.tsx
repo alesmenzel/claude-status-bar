@@ -19,8 +19,10 @@ export type Position = (typeof POSITIONS)[number]
 // `,` separates groups, which the bar spreads over its width; `+` joins
 // segments inside one group.
 // The context legend shows on hover over `ctx`; the `legend` id draws it
-// beside the meter for a terminal with no pointer.
-export const DEFAULT_SEGMENTS = 'limit5h+limit7d,ctx,cost,cache'
+// beside the meter for a terminal with no pointer. The limit segments draw
+// only the windows the account has: 5h and 7d on a Pro or Max plan, the
+// spend limit on an Enterprise seat.
+export const DEFAULT_SEGMENTS = 'limit5h+limit7d+limitSpend,ctx,cost,cache'
 
 const TTL_MS = { '1h': 60 * 60 * 1000, '5m': 5 * 60 * 1000 } as const
 
