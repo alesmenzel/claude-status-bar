@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import type { BarData } from '../hooks/register'
 import { dayAndTime, fixedLocalTime, parseTime, systemLocalTime, timeOfDay } from '../hooks/register'
-import { limit5h, limit7d, limitSpend, windowState } from '../hooks/segments/limits'
+import { durationText, limit5h, limit7d, limitSpend, resetHover } from '../hooks/segments/limits'
 import { colorOf, ctxOf, drawOf, EMPTY, ENTERPRISE, FULL, join, limits, limitsResetting, RESET_5H, RESET_7D } from './fixtures'
 
 const at = (percent: number, form: 'wide' | 'narrow' = 'wide') =>
@@ -29,17 +29,11 @@ describe('limit segments', () => {
     expect(drawOf('limit7d', ctxOf(FULL, 'crowded'))).toBe('7d ━━━━────  50% ↻Mon 09:00')
   })
 
-  test('draw an empty meter, --% and --:-- before the window has a figure', async () => {
-    expect(drawOf('limit5h', ctxOf(EMPTY))).toBe('5h ────────  --% ↻--:--')
-    expect(drawOf('limit7d', ctxOf(EMPTY))).toBe('7d ────────  --% ↻--- --:--')
-    expect(drawOf('limit7d', ctxOf(EMPTY, 'narrow'))).toBe('7d  --%')
-  })
-
   test('take the same width with and without data, in every form', async () => {
     for (const segment of [limit5h, limit7d, limitSpend]) {
       for (const form of ['wide', 'crowded', 'narrow'] as const) {
-        // The spend limit has no placeholder: its width is that of its first figure.
-        const empty = join(segment.render(ctxOf(segment === limitSpend ? resetting(limits(0, 0, 0)) : EMPTY, form)))
+        // The width of the first figure, with no reset time.
+        const empty = join(segment.render(ctxOf(resetting(limits(0, 0, 0)), form)))
         for (const percent of [0, 5, 50, 99, 100]) {
           for (const data of [
             resetting(limits(percent, percent, percent)),
@@ -70,21 +64,17 @@ describe('limit segments', () => {
     expect(colorOf(at(91, 'narrow'), /%$/)).toBe('magenta')
   })
 
-  test('draw the placeholder uncolored', async () => {
-    expect(limit5h.render(ctxOf(EMPTY))!.every(r => r.color === undefined)).toBe(true)
-    expect(limit7d.render(ctxOf(EMPTY))!.every(r => r.color === undefined)).toBe(true)
+  test('draw a window under 50% uncolored', async () => {
+    expect(limit5h.render(ctxOf({ rateLimits: limits(10) }))!.every(r => r.color === undefined)).toBe(true)
   })
 })
 
 describe('the windows an account has', () => {
-  test('read a window as reported, absent once a response came without it, or unknown before', async () => {
-    expect(windowState(FULL, 'five_hour')).toBe('yes')
-    expect(windowState(FULL, 'spend_limit')).toBe('no')
-    expect(windowState(ENTERPRISE, 'five_hour')).toBe('no')
-    expect(windowState(ENTERPRISE, 'spend_limit')).toBe('yes')
-    expect(windowState(EMPTY, 'five_hour')).toBe('unknown')
-    // A response with no window at all (an API key, a seat with no limits).
-    expect(windowState({ rateLimits: [], lastResponseAt: 0 }, 'five_hour')).toBe('no')
+  test('draw nothing until a response reports the window', async () => {
+    for (const segment of [limit5h, limit7d, limitSpend]) {
+      expect(segment.render(ctxOf(EMPTY))).toBeNull()
+      expect(segment.render(ctxOf({ rateLimits: [], lastResponseAt: 0 }))).toBeNull()
+    }
   })
 
   test('draw nothing for the 5h and 7d windows on an Enterprise seat', async () => {
@@ -94,21 +84,53 @@ describe('the windows an account has', () => {
 
   test('draw nothing for the spend limit on a Pro or Max plan', async () => {
     expect(limitSpend.render(ctxOf(FULL))).toBeNull()
-    expect(limitSpend.render(ctxOf({ rateLimits: limits(25, 50) }))).toBeNull()
-  })
-
-  test('draw the 5h and 7d placeholders, and no spend limit, before the first response', async () => {
-    expect(drawOf('limit5h', ctxOf(EMPTY))).toBe('5h ────────  --% ↻--:--')
-    expect(limitSpend.render(ctxOf(EMPTY))).toBeNull()
   })
 
   test('draw nothing for a window the response left out', async () => {
-    // Only the 5h window has a reading: the account has no 7d window.
     expect(limit7d.render(ctxOf({ rateLimits: limits(40) }))).toBeNull()
-    // No window at all after a response: no limit segment draws.
-    for (const segment of [limit5h, limit7d, limitSpend]) {
-      expect(segment.render(ctxOf({ rateLimits: [], lastResponseAt: 0 }))).toBeNull()
+  })
+})
+
+describe('the reset hover', () => {
+  const NOW = Date.parse(RESET_5H) - (2 * 3600 + 34 * 60 + 23) * 1000
+
+  test('reads the time until the window resets', async () => {
+    const runs = limit5h.hover!(ctxOf(FULL, 'wide', { now: NOW }), join(limit5h.render(ctxOf(FULL))).length)
+    expect(join(runs)).toBe('5h resets in 2h 34m 23s')
+    expect(join(limit7d.hover!(ctxOf(FULL, 'wide', { now: NOW }), 27))).toBe('7d resets in 23h 14m 23s')
+  })
+
+  test('takes a shorter form where the long one does not fit the cells', async () => {
+    const at = Date.parse(RESET_5H)
+    expect(join(resetHover('5h', at, NOW, 23))).toBe('5h resets in 2h 34m 23s')
+    expect(join(resetHover('5h', at, NOW, 22))).toBe('5h ↻2h 34m 23s')
+    expect(join(resetHover('5h', at, NOW, 13))).toBe('↻2h 34m')
+    expect(resetHover('5h', at, NOW, 6)).toBeNull()
+  })
+
+  test('fits the cells the segment draws, in every form', async () => {
+    for (const [segment, data] of [[limit5h, FULL], [limit7d, FULL], [limitSpend, resetting([{ kind: 'spend_limit', percentUsed: 10, resetsAt: RESET_7D }])]] as const) {
+      for (const form of ['wide', 'crowded', 'narrow'] as const) {
+        // The longest the reset can be: 6d 23h 59m 59s.
+        const ctx = ctxOf(data, form, { now: Date.parse(RESET_7D) - 7 * 86_400_000 + 1000 })
+        const width = join(segment.render(ctx)).length
+        const hover = segment.hover!(ctx, width)
+        expect(hover, `${segment.id} ${form}`).not.toBeNull()
+        expect(join(hover).length, `${segment.id} ${form}`).toBeLessThanOrEqual(width)
+      }
     }
+  })
+
+  test('is absent with no reset time', async () => {
+    expect(limit5h.hover!(ctxOf(resetting(limitsResetting(25, 50, [undefined, undefined]))), 23)).toBeNull()
+    expect(limit5h.hover!(ctxOf(EMPTY), 23)).toBeNull()
+  })
+
+  test('durationText counts down to seconds from the largest unit', async () => {
+    expect(durationText((2 * 3600 + 34 * 60 + 23) * 1000)).toBe('2h 34m 23s')
+    expect(durationText((6 * 86_400 + 5 * 60) * 1000)).toBe('6d 0h 5m 0s')
+    expect(durationText(59_999)).toBe('59s')
+    expect(durationText(-5000)).toBe('0s')
   })
 })
 
@@ -141,8 +163,8 @@ describe('reset times', () => {
   })
 
   test('take the same width as the placeholder at every hour', async () => {
-    const width5h = drawOf('limit5h', ctxOf(EMPTY)).length
-    const width7d = drawOf('limit7d', ctxOf(EMPTY)).length
+    const width5h = drawOf('limit5h', ctxOf(resetting(limitsResetting(0, 0, [undefined, undefined])))).length
+    const width7d = drawOf('limit7d', ctxOf(resetting(limitsResetting(0, 0, [undefined, undefined])))).length
     for (let h = 0; h < 24 * 7; h += 5) {
       const iso = new Date(Date.parse('2026-10-25T00:07:00Z') + h * 3_600_000).toISOString()
       const data = resetting(limitsResetting(42, 42, [iso, iso]))

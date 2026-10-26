@@ -1,6 +1,6 @@
 import type { SessionRateLimit } from 'claude-code'
 
-import type { BarData, Run, Segment, SegmentContext, WallClock } from '../segment'
+import type { Run, Segment, SegmentContext, WallClock } from '../segment'
 import {
   CLOCK_PLACEHOLDER,
   DAY_TIME_PLACEHOLDER,
@@ -9,8 +9,8 @@ import {
   METER_WIDTH,
   meter,
   parseTime,
-  PERCENT_PLACEHOLDER,
   percentRun,
+  runsWidth,
   systemLocalTime,
   timeOfDay,
   value,
@@ -25,51 +25,66 @@ const DAY_AND_TIME: ResetForm = { format: dayAndTime, placeholder: DAY_TIME_PLAC
 // The glyph before a reset time.
 export const RESET_GLYPH = '↻'
 
-// Whether the account has a window: `yes` when the last API response
-// reported it; `no` when a response came (the list has other windows, or the
-// main loop got an answer) without it; `unknown` before any response. An
-// Enterprise seat reports no 5h or 7d window, and a Pro or Max plan no spend
-// limit, so the bar reads the plan from the windows themselves.
-export type WindowState = 'yes' | 'no' | 'unknown'
+// A duration, from the largest unit that is not zero down to seconds:
+// `2h 34m 23s`, `6d 0h 5m 0s`; `0s` for a reset that is due or past.
+export const durationText = (ms: number): string => {
+  let rest = Math.max(0, Math.floor(ms / 1000))
+  const parts: string[] = []
+  for (const [unit, size] of [['d', 86_400], ['h', 3_600], ['m', 60]] as const) {
+    const n = Math.floor(rest / size)
+    rest -= n * size
+    if (n > 0 || parts.length > 0) parts.push(`${n}${unit}`)
+  }
+  parts.push(`${rest}s`)
 
-export const windowState = (data: BarData, kind: SessionRateLimit['kind']): WindowState => {
-  if (data.rateLimits.some(r => r.kind === kind)) return 'yes'
+  return parts.join(' ')
+}
 
-  return data.rateLimits.length > 0 || data.lastResponseAt !== undefined ? 'no' : 'unknown'
+// The hover view of a window: the time until it resets, in the first form
+// that fits the segment's cells: `5h resets in 2h 34m 23s`, `5h ↻2h 34m 23s`,
+// then the two largest units alone, `↻2h 34m`. None where the engine gives no
+// reset time or no form fits.
+export const resetHover = (name: string, resetsAt: number, now: number, width: number): Run[] | null => {
+  const left = durationText(resetsAt - now)
+  const short = left.split(' ').slice(0, 2).join(' ')
+  const forms: Run[][] = [
+    [label(`${name} resets in `), value(left)],
+    [label(`${name} ${RESET_GLYPH}`), value(left)],
+    [label(RESET_GLYPH), value(short)],
+  ]
+
+  return forms.find(runs => runsWidth(runs) <= width) ?? null
 }
 
 // A rate-limit window: `5h ━━────── 25% ↻12:20`, or `5h  25%` on a narrow
-// bar, which drops the meter and the reset time. Before the session has the
-// window's figure, the meter is empty, the percentage reads ` --%` and the
-// reset time `--:--` (also when the engine gives no reset time). A window the
-// account does not have draws nothing; one that `isRare` draws nothing until
-// it is reported, so most bars keep their shape when the first figures come.
-const limitSegment = (
-  id: string,
-  kind: SessionRateLimit['kind'],
-  name: string,
-  { reset, isRare = false }: { reset?: ResetForm; isRare?: boolean } = {},
-): Segment => ({
+// bar, which drops the meter and the reset time; the reset time reads
+// `--:--` when the engine gives none. A window draws nothing until an API
+// response reports it, so an account with no such window (an Enterprise seat
+// has no 5h or 7d window) never shows it. On hover, the time until it resets.
+const limitSegment = (id: string, kind: SessionRateLimit['kind'], name: string, reset?: ResetForm): Segment => ({
   id,
   render: ({ data, isNarrow, localTime = systemLocalTime }: SegmentContext): Run[] | null => {
-    const state = windowState(data, kind)
-    if (state === 'no' || (state === 'unknown' && isRare)) return null
     const limit = data.rateLimits.find(r => r.kind === kind)
-    const fraction = limit === undefined ? undefined : limit.percentUsed / 100
+    if (limit === undefined) return null
     const runs: Run[] = [label(`${name} `)]
-    if (!isNarrow) runs.push(...meter(fraction ?? 0, METER_WIDTH), label(' '))
-    runs.push(fraction === undefined ? value(PERCENT_PLACEHOLDER) : percentRun(fraction))
+    if (!isNarrow) runs.push(...meter(limit.percentUsed / 100, METER_WIDTH), label(' '))
+    runs.push(percentRun(limit.percentUsed / 100))
     if (reset !== undefined && !isNarrow) {
-      const at = parseTime(limit?.resetsAt)
+      const at = parseTime(limit.resetsAt)
       runs.push(label(` ${RESET_GLYPH}`), value(at === undefined ? reset.placeholder : reset.format(localTime(at))))
     }
 
     return runs
   },
+  hover: ({ data, now }, width) => {
+    const at = parseTime(data.rateLimits.find(r => r.kind === kind)?.resetsAt)
+
+    return at === undefined ? null : resetHover(name, at, now, width)
+  },
 })
 
-export const limit5h = limitSegment('limit5h', 'five_hour', '5h', { reset: TIME_OF_DAY })
-export const limit7d = limitSegment('limit7d', 'seven_day', '7d', { reset: DAY_AND_TIME })
+export const limit5h = limitSegment('limit5h', 'five_hour', '5h', TIME_OF_DAY)
+export const limit7d = limitSegment('limit7d', 'seven_day', '7d', DAY_AND_TIME)
 // The account's spend limit (an Enterprise seat's usage budget, a Claude
 // gateway's spend limit): a percentage, as the engine gives no dollar figure.
-export const limitSpend = limitSegment('limitSpend', 'spend_limit', 'spend', { isRare: true })
+export const limitSpend = limitSegment('limitSpend', 'spend_limit', 'spend')

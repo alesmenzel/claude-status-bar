@@ -10,19 +10,19 @@ With the pointer over `ctx`, the legend shows in the same cells:
 
 | Segment id | Shows |
 | --- | --- |
-| `limit5h` | The 5-hour rate-limit window, as the last API response reported it, and its reset time in local 24h time: `5h ━━──────  25% ↻12:20`. |
-| `limit7d` | The 7-day rate-limit window and its reset day and time: `7d ━─────── 12% ↻Mon 09:00`. |
-| `limitSpend` | The account's spend limit as a percentage, when Claude Code reports one (an Enterprise seat's usage budget, a gateway spend limit): `spend ━───────  10%`. Claude Code gives no dollar figure. |
+| `limit5h` | The 5-hour rate-limit window, as the last API response reported it, and its reset time in local 24h time: `5h ━━──────  25% ↻12:20`. Hover to see the time until the reset: `5h resets in 2h 34m 23s`. |
+| `limit7d` | The 7-day rate-limit window and its reset day and time: `7d ━─────── 12% ↻Mon 09:00`. Hover to see the time until the reset. |
+| `limitSpend` | The account's spend limit as a percentage, when Claude Code reports one (an Enterprise seat's usage budget, a gateway spend limit): `spend ━───────  10%`. Claude Code gives no dollar figure. Hover to see the time until the reset, when Claude Code reports one. |
 | `ctx` | The context window fill, then the tokens the last main-thread turn added: `62k/200k  31% +4.1k`. Each cell has the color of the group that fills it. Hover over the segment to see the legend in its place (see below). The delta reads `+--` until the bar has an earlier figure to compare with (after the first or second turn). It starts again after `/clear` and is negative after a compaction. The percentage turns blue, orange and magenta above 50%, 75% and 90% of the window, or of `contextLimit` when that is lower. |
 | `legend` | The context split: system prompt and memory (`sys`), built-in tools (`tools`), MCP tools (`mcp`), messages (`conv`). Not in the default bar: use `ctx+legend` on a terminal without mouse support. |
 | `cost` | The session cost, for example `$1.24`. With a `budgetUsd` above 0, also the budget, a meter and the percentage: `$1.24 / $10 ━─────── 12%`. |
 | `cache` | The time (mm:ss) until the prompt cache expires, counted from the last main-thread response. |
 
-The `5h`, `7d`, spend and budget meters turn blue above 50%, orange above 75% and magenta above 90%. The cache timer uses the same colors for the elapsed part of the TTL. Segments show `--` placeholders until the data arrives, so the bar does not change shape.
+The `5h`, `7d`, spend and budget meters turn blue above 50%, orange above 75% and magenta above 90%. The cache timer uses the same colors for the elapsed part of the TTL. The other segments show `--` placeholders until the data arrives, so the bar does not change shape. When the bar does not fit, it drops the `legend` segment and shrinks the context bar. Below 110 columns, or when that is not enough, it uses a narrow form without the 5h, 7d and budget meters, the reset times and the context delta. If the narrow form is too wide, the groups at the right go.
 
-**Plan detection.** The limit segments show only the windows that your account reports. A Pro or Max plan shows `5h` and `7d`. An Enterprise seat has no 5h or 7d window, so it shows `spend` in their place. Before the first API response, the bar shows the `5h` and `7d` placeholders. A window that the first response does not report goes away. An account that reports no window (for example an API key) shows no limit segment. When the bar does not fit, it drops the `legend` segment and shrinks the context bar. Below 110 columns, or when that is not enough, it uses a narrow form without the 5h, 7d and budget meters, the reset times and the context delta. If the narrow form is too wide, the groups at the right go.
+**Plan detection.** The limit segments show only the windows that your account reports. A Pro or Max plan shows `5h` and `7d`. An Enterprise seat has no 5h or 7d window, so it shows `spend` in their place. Before the first API response of the process, the bar shows no limit segment. An account that reports no window (for example an API key) shows no limit segment. The windows stay on the bar after `/clear`, because they belong to the account and not to the conversation.
 
-**Hover.** Move the pointer over `ctx` to see the legend (`■ sys  18k  ■ tools  30k …`) in the same cells, with no layout shift. Where the full legend does not fit, it is compact (`■ 18k ■ 30k …`). Hover works in the `above` and `below` positions, not in `status`. It needs a terminal that reports mouse movement.
+**Hover.** Move the pointer over a limit segment to see the time until its window resets, for example `5h resets in 2h 34m 23s`. Where the long form does not fit the segment's cells, it is shorter (`5h ↻2h 34m 23s`, then `↻2h 34m`). Move the pointer over `ctx` to see the legend (`■ sys  18k  ■ tools  30k …`) in the same cells, with no layout shift. Where the full legend does not fit, it is compact (`■ 18k ■ 30k …`). Hover works in the `above` and `below` positions, not in `status`. It needs a terminal that reports mouse movement.
 
 ## Setup
 
@@ -33,7 +33,7 @@ Install it from this repository's marketplace, in Claude Code:
 /plugin install status-bar@alesmenzel
 ```
 
-Get updates with `/plugin marketplace update alesmenzel`.
+To get a new version, see [Updating](#updating).
 
 ### From a clone
 
@@ -56,6 +56,29 @@ export CLAUDE_CODE_PLUGIN_DIRS="$HOME/claude-mods/claude-status-bar"
 ```
 
 The mod has no runtime dependencies. You do not need `npm install` to use it.
+
+### Updating
+
+Claude Code loads the mod when a session starts. After an update, restart Claude Code to use the new version.
+
+From the marketplace:
+
+1. Run `/plugin marketplace update alesmenzel` in Claude Code.
+2. Restart Claude Code.
+
+From a clone:
+
+1. Pull the changes:
+
+   ```sh
+   git -C ~/claude-mods/claude-status-bar pull
+   ```
+
+2. Restart Claude Code.
+
+Claude Code runs the files that are in the clone, on the branch that is checked out. A local change to the clone also applies after a restart.
+
+A segment list that you set with `/status-bar segments` stays after an update. It overrides a new default. To use the default of the new version, set the `segments` option in the `/config` menu.
 
 ## Configuration
 

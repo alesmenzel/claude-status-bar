@@ -105,11 +105,12 @@ test('shortens the meters and drops the legend on a narrow bar', async () => {
 
 test('draws placeholders of the same width with no data', async () => {
   for (const columns of [160, 80]) {
-    const before = texts(empty, columns)
+    // The limit windows outlive /clear: only the session's figures go.
+    const before = texts({ rateLimits: full.rateLimits }, columns)
     const after = texts(full, columns)
     expect(before.map(t => t.length)).toEqual(after.map(t => t.length))
   }
-  expect(texts(empty, 160)[3]).toBe('cache --:--')
+  expect(texts({ rateLimits: full.rateLimits }, 160)[3]).toBe('cache --:--')
 })
 
 test('colors each context cell by its group', async () => {

@@ -164,7 +164,8 @@ describe('the drawn hover area', () => {
     world(on)
     const ui = await $.ui.mount(BAND(160))
     const root = (await ui.drawn()) as unknown as { children: { type: string; key?: string }[] }
-    expect(root.children.map(c => c.type)).toEqual(['Text', 'Box', 'Text', 'Text'])
+    // No limit window is reported yet: ctx is the one hover area.
+    expect(root.children.map(c => c.type)).toEqual(['Box', 'Text', 'Text'])
     await ui.unmount()
   })
 

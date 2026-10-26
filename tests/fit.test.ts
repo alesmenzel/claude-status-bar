@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import type { BarData, Run } from '../hooks/register'
 import { compose, CTX_CELLS, fit, parseLayout, plainText, WIDE_COLUMNS, widthOf } from '../hooks/register'
-import { BUILTINS, ctxOf, EMPTY, ENTERPRISE, FULL, HOUR, join, LAYOUT, limits, UTC } from './fixtures'
+import { BUILTINS, ctxOf, EMPTY, ENTERPRISE, FULL, HOUR, join, LAYOUT, limits, LIMITS_ONLY, UTC } from './fixtures'
 
 const base = (data: BarData, columns: number, budgetUsd = 10) => ({ data, now: HOUR / 4, columns, budgetUsd, ttlMs: HOUR, localTime: UTC })
 const fitAt = (columns: number, data: BarData = FULL, layout = LAYOUT, budgetUsd = 10) =>
@@ -133,14 +133,14 @@ describe('no layout shift', () => {
       for (const budgetUsd of [0, 10]) {
         const widths = (data: BarData) => fitAt(columns, data, LAYOUT, budgetUsd).map(runs => join(runs).length)
         const full = widths(FULL)
-        expect(widths(EMPTY), `${columns} columns, empty`).toEqual(full)
+        expect(widths(LIMITS_ONLY), `${columns} columns, empty`).toEqual(full)
         expect(widths(PARTIAL), `${columns} columns, partial`).toEqual(full)
       }
     }
   })
 
   test('the bar keeps its width as the figures grow', async () => {
-    const width = widthOf(fitAt(160, EMPTY))
+    const width = widthOf(fitAt(160, LIMITS_ONLY))
     for (const [percent, usd, tokens] of [
       [0, 0, 0],
       [5, 0.05, 5],

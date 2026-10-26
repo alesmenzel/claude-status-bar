@@ -1,5 +1,14 @@
 import { atom, read, update } from 'claude-code'
-import type { ConfigSetInput, Elements, EngineInterface, PluginOptions, Register, RenderElement, Timer } from 'claude-code'
+import type {
+  ConfigSetInput,
+  Elements,
+  EngineInterface,
+  PluginOptions,
+  Register,
+  RenderElement,
+  SessionRateLimit,
+  Timer,
+} from 'claude-code'
 
 import type { StatusBarRun, StatusBarSegmentResult, StatusBarSegmentSpec } from '../types'
 import type { BarData, Run, Segment, SegmentContext } from './segment'
@@ -20,7 +29,7 @@ export type Position = (typeof POSITIONS)[number]
 // segments inside one group.
 // The context legend shows on hover over `ctx`; the `legend` id draws it
 // beside the meter for a terminal with no pointer. The limit segments draw
-// only the windows the account has: 5h and 7d on a Pro or Max plan, the
+// only the windows the account reports: 5h and 7d on a Pro or Max plan, the
 // spend limit on an Enterprise seat.
 export const DEFAULT_SEGMENTS = 'limit5h+limit7d+limitSpend,ctx,cost,cache'
 
@@ -381,10 +390,17 @@ function reconfigure(bar: Bar): void {
   bar.config = withOverrides(readConfig(bar.options), bar.overrides)
 }
 
+// The rate-limit windows belong to the account, not to the conversation: an
+// empty list (a new session, or one just cleared, before its first response)
+// keeps the windows the last response reported.
+function keepLimits(bar: Bar, rateLimits: readonly SessionRateLimit[]): void {
+  if (rateLimits.length > 0) bar.data.rateLimits = rateLimits
+}
+
 async function measure($: EngineInterface, bar: Bar): Promise<void> {
   const usage = await $.session.usage({ breakdown: 'summary' })
   bar.data.context = usage.context
-  bar.data.rateLimits = usage.rateLimits
+  keepLimits(bar, usage.rateLimits)
   bar.data.cost = usage.cost
   if (usage.context.breakdown !== undefined) bar.data.split = splitContext(usage.context.breakdown.categories)
   await refresh($, bar)
@@ -498,7 +514,7 @@ export const register: Register = (on, options) => {
 
   on('session.measure', async ($, e, next) => {
     data.context = e.context
-    data.rateLimits = e.rateLimits
+    keepLimits(bar, e.rateLimits)
     data.cost = e.cost
     await refresh($, bar)
 

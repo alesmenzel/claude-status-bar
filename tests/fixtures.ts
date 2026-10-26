@@ -45,6 +45,10 @@ export const ENTERPRISE: BarData = { ...FULL, rateLimits: limits(undefined, unde
 // A new session, or one right after /clear: no figures at all.
 export const EMPTY: BarData = { rateLimits: [] }
 
+// A session with no figures of its own yet, on an account whose windows an
+// earlier response reported (they outlive /clear).
+export const LIMITS_ONLY: BarData = { rateLimits: FULL.rateLimits }
+
 export type Form = 'wide' | 'crowded' | 'narrow'
 
 // A segment context in one of the bar's three forms.

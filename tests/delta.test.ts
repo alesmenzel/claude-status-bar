@@ -4,7 +4,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { BarData } from '../hooks/register'
 import { DELTA_PLACEHOLDER, deltaText, fit, widthOf } from '../hooks/register'
 import { ctx } from '../hooks/segments'
-import { BUILTINS, ctxOf, EMPTY, FULL, HOUR, join, LAYOUT, UTC } from './fixtures'
+import { BUILTINS, ctxOf, EMPTY, FULL, HOUR, join, LAYOUT, LIMITS_ONLY, UTC } from './fixtures'
 import { BAND, END_CLEAR, START, TURN, world } from './world'
 
 const usageAt = (tokens: number | undefined): SessionUsage => ({
@@ -69,7 +69,7 @@ describe('the ctx delta', () => {
   test('keeps the bar its width from the placeholder to any delta', async () => {
     const base = { now: HOUR / 4, budgetUsd: 10, ttlMs: HOUR, localTime: UTC }
     for (const columns of [80, 120, 160, 200, 240]) {
-      const width = widthOf(fit(LAYOUT, BUILTINS, { ...base, data: EMPTY, columns }))
+      const width = widthOf(fit(LAYOUT, BUILTINS, { ...base, data: LIMITS_ONLY, columns }))
       for (const ctxDelta of [0, 5, -5, 950, 4100, -12_000, 999_999, -2e6]) {
         const groups = fit(LAYOUT, BUILTINS, { ...base, data: withDelta(ctxDelta), columns })
         expect(widthOf(groups), `${columns} columns, ${ctxDelta}`).toBe(width)

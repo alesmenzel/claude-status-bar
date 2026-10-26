@@ -157,7 +157,7 @@ describe('stored overrides', () => {
     world(on, { position: 'sideways', segments: ',' })
     await $.session.start(START)
     const ui = await $.ui.mount(BAND())
-    expect(await ui.find({ type: 'Text', text: /5h/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /cache/ })).toBeDefined()
     await ui.unmount()
   })
 

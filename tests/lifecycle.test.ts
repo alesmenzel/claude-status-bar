@@ -144,14 +144,14 @@ describe('no layout shift', () => {
     }
   })
 
-  test('the band before any data has the shape it has with data', async ($, on) => {
+  test('the band before any figure has the shape it has with data, once the windows are known', async ($, on) => {
     const w = world(on)
     for (const columns of [80, 160, 220]) {
-      w.usage = NO_USAGE
+      w.usage = { ...NO_USAGE, rateLimits: SOME_USAGE.rateLimits }
+      await $.session.start(START)
       const ui = await $.ui.mount(BAND(columns))
       const empty = shapeOf(await ui.drawn())
       w.usage = SOME_USAGE
-      await $.session.start(START)
       await $.turn.complete(TURN)
       expect(shapeOf(await ui.drawn()), `${columns} columns`).toEqual(empty)
       await ui.unmount()
@@ -173,7 +173,7 @@ describe('the status line position', () => {
     expect(last()!.length).toBe(width)
     w.usage = NO_USAGE
     await $.session.end(END_CLEAR)
-    expect(last()).toBe(`5h  --%  7d  --%  ·  ctx ${'░'.repeat(20)}    0/200k   0%  ·  $-.--  ·  cache --:--`)
+    expect(last()).toBe(`5h  25%  7d  50%  ·  ctx ${'░'.repeat(20)}    0/200k   0%  ·  $-.--  ·  cache --:--`)
     expect(last()!.length).toBe(width)
   })
 
