@@ -340,6 +340,11 @@ type Bar = {
   data: BarData
   custom: Map<string, Segment>
   tick?: Timer
+  // When the tick last ran (or was started), in ms since the epoch: a tick
+  // that has not run for STALL_MS has stopped.
+  tickAt?: number
+  // True once the session ended for good (not a /clear or a resume): no tick.
+  hasEnded: boolean
   // Context tokens at the end of the last main-loop turn (or at the start of
   // the conversation): what the next turn's delta counts from.
   baseTokens?: number
@@ -386,6 +391,33 @@ async function refresh($: EngineInterface, bar: Bar): Promise<void> {
   $.ui.status((await isBarHidden($, bar)) ? undefined : plainText(await groupsAt($, bar, STATUS_COLUMNS)))
 }
 
+const TICK_MS = 1000
+const STALL_MS = 5 * TICK_MS
+
+// The one-second tick that redraws the clocks. A refused period ends a
+// `$.clock.every` for good, and a hot reload cancels it with no new
+// `session.start`, so the session's events restart a tick that has stalled.
+function startTick($: EngineInterface, bar: Bar, now: number): void {
+  bar.tick?.cancel()
+  bar.tickAt = now
+  bar.tick = $.clock.every(TICK_MS, () => {
+    $.clock.now().then(
+      at => {
+        bar.tickAt = at
+      },
+      () => undefined,
+    )
+    refresh($, bar).catch(() => undefined)
+  })
+}
+
+async function keepTicking($: EngineInterface, bar: Bar): Promise<void> {
+  if (bar.hasEnded) return
+  const now = await $.clock.now()
+  if (bar.tick !== undefined && now - (bar.tickAt ?? now) < STALL_MS) return
+  startTick($, bar, now)
+}
+
 function reconfigure(bar: Bar): void {
   bar.config = withOverrides(readConfig(bar.options), bar.overrides)
 }
@@ -414,6 +446,7 @@ export const register: Register = (on, options) => {
     isOnStatus: false,
     data: { rateLimits: [] },
     custom: new Map(),
+    hasEnded: false,
   }
   const { data, custom } = bar
   const isPlaced = (id: string): boolean => bar.config.layout.some(group => group.includes(id))
@@ -457,8 +490,8 @@ export const register: Register = (on, options) => {
       argumentHint: '[on|off|toggle|position <above|below|status>|segments <list>]',
       immediate: true,
     })
-    bar.tick?.cancel()
-    bar.tick = $.clock.every(1000, () => refresh($, bar))
+    bar.hasEnded = false
+    startTick($, bar, await $.clock.now())
     await measure($, bar)
     bar.baseTokens = data.context?.tokens
 
@@ -517,6 +550,7 @@ export const register: Register = (on, options) => {
     keepLimits(bar, e.rateLimits)
     data.cost = e.cost
     await refresh($, bar)
+    await keepTicking($, bar)
 
     return next(e)
   })
@@ -534,6 +568,7 @@ export const register: Register = (on, options) => {
         bar.baseTokens = tokens
         await refresh($, bar)
       }
+      await keepTicking($, bar)
     }
 
     return result
@@ -547,11 +582,12 @@ export const register: Register = (on, options) => {
     data.cost = undefined
     data.ctxDelta = undefined
     bar.baseTokens = undefined
-    if (e.reason === 'clear') {
+    if (e.reason === 'clear' || e.reason === 'resume') {
       // The process goes on under a new session: keep the clock and re-measure.
       await measure($, bar).catch(() => refresh($, bar))
       bar.baseTokens = data.context?.tokens
     } else {
+      bar.hasEnded = true
       bar.tick?.cancel()
       bar.tick = undefined
     }
