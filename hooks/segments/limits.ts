@@ -1,6 +1,6 @@
 import type { SessionRateLimit } from 'claude-code'
 
-import type { Run, Segment, SegmentContext, WallClock } from '../segment'
+import type { BarData, Run, Segment, SegmentContext, WallClock } from '../segment'
 import {
   CLOCK_PLACEHOLDER,
   DAY_TIME_PLACEHOLDER,
@@ -25,13 +25,35 @@ const DAY_AND_TIME: ResetForm = { format: dayAndTime, placeholder: DAY_TIME_PLAC
 // The glyph before a reset time.
 export const RESET_GLYPH = '↻'
 
+// Whether the account has a window: `yes` when the last API response
+// reported it; `no` when a response came (the list has other windows, or the
+// main loop got an answer) without it; `unknown` before any response. An
+// Enterprise seat reports no 5h or 7d window, and a Pro or Max plan no spend
+// limit, so the bar reads the plan from the windows themselves.
+export type WindowState = 'yes' | 'no' | 'unknown'
+
+export const windowState = (data: BarData, kind: SessionRateLimit['kind']): WindowState => {
+  if (data.rateLimits.some(r => r.kind === kind)) return 'yes'
+
+  return data.rateLimits.length > 0 || data.lastResponseAt !== undefined ? 'no' : 'unknown'
+}
+
 // A rate-limit window: `5h ━━────── 25% ↻12:20`, or `5h  25%` on a narrow
 // bar, which drops the meter and the reset time. Before the session has the
 // window's figure, the meter is empty, the percentage reads ` --%` and the
-// reset time `--:--` (also when the engine gives no reset time).
-const limitSegment = (id: string, kind: SessionRateLimit['kind'], name: string, reset?: ResetForm): Segment => ({
+// reset time `--:--` (also when the engine gives no reset time). A window the
+// account does not have draws nothing; one that `isRare` draws nothing until
+// it is reported, so most bars keep their shape when the first figures come.
+const limitSegment = (
+  id: string,
+  kind: SessionRateLimit['kind'],
+  name: string,
+  { reset, isRare = false }: { reset?: ResetForm; isRare?: boolean } = {},
+): Segment => ({
   id,
-  render: ({ data, isNarrow, localTime = systemLocalTime }: SegmentContext): Run[] => {
+  render: ({ data, isNarrow, localTime = systemLocalTime }: SegmentContext): Run[] | null => {
+    const state = windowState(data, kind)
+    if (state === 'no' || (state === 'unknown' && isRare)) return null
     const limit = data.rateLimits.find(r => r.kind === kind)
     const fraction = limit === undefined ? undefined : limit.percentUsed / 100
     const runs: Run[] = [label(`${name} `)]
@@ -46,7 +68,8 @@ const limitSegment = (id: string, kind: SessionRateLimit['kind'], name: string, 
   },
 })
 
-export const limit5h = limitSegment('limit5h', 'five_hour', '5h', TIME_OF_DAY)
-export const limit7d = limitSegment('limit7d', 'seven_day', '7d', DAY_AND_TIME)
-// A Claude gateway's spend limit; not in the default bar.
-export const limitSpend = limitSegment('limitSpend', 'spend_limit', 'spend')
+export const limit5h = limitSegment('limit5h', 'five_hour', '5h', { reset: TIME_OF_DAY })
+export const limit7d = limitSegment('limit7d', 'seven_day', '7d', { reset: DAY_AND_TIME })
+// The account's spend limit (an Enterprise seat's usage budget, a Claude
+// gateway's spend limit): a percentage, as the engine gives no dollar figure.
+export const limitSpend = limitSegment('limitSpend', 'spend_limit', 'spend', { isRare: true })

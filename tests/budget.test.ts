@@ -98,8 +98,8 @@ describe('the account spend limit (limitSpend)', () => {
     expect(join(limitSpend.render(ctxOf(data)))).toBe('spend ━━━━━━──  80%')
   })
 
-  test('draws a placeholder of the same width where the account has none', async () => {
-    expect(join(limitSpend.render(ctxOf(EMPTY)))).toBe('spend ────────  --%')
-    expect(join(limitSpend.render(ctxOf(EMPTY, 'narrow')))).toBe('spend  --%')
+  test('draws nothing where the account has none or has no figure yet', async () => {
+    expect(limitSpend.render(ctxOf(EMPTY))).toBeNull()
+    expect(limitSpend.render(ctxOf(EMPTY, 'narrow'))).toBeNull()
   })
 })

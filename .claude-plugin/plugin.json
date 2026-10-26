@@ -22,7 +22,7 @@
       "type": "string",
       "title": "Segments",
       "description": "The segments to show, in order. Commas separate groups spread over the width; + joins segments in one group. Built-ins: limit5h, limit7d, limitSpend, ctx, legend, cost, cache. Hovering ctx shows its legend; add legend (ctx+legend) to show it beside the meter where there is no mouse. Ids of other mods' segments work too; unknown ids are ignored.",
-      "default": "limit5h+limit7d,ctx,cost,cache"
+      "default": "limit5h+limit7d+limitSpend,ctx,cost,cache"
     },
     "budgetUsd": {
       "type": "number",

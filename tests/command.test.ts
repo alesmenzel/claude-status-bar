@@ -112,7 +112,7 @@ describe('/status-bar position and segments', () => {
     const w = world(on)
     for (const args of ['segments', 'segments  ', 'segments ,', 'segments +,+']) {
       expect(await slash($, args)).toMatchObject({
-        text: 'Usage: /status-bar segments limit5h+limit7d,ctx,cost,cache',
+        text: 'Usage: /status-bar segments limit5h+limit7d+limitSpend,ctx,cost,cache',
       })
     }
     expect(w.store.has('segments')).toBe(false)

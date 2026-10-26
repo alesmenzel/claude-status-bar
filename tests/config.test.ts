@@ -5,7 +5,7 @@ import { FIVE_MIN, HOUR } from './fixtures'
 
 describe('parseLayout', () => {
   test('splits groups on , and segments inside a group on +', async () => {
-    expect(parseLayout(DEFAULT_SEGMENTS)).toEqual([['limit5h', 'limit7d'], ['ctx'], ['cost'], ['cache']])
+    expect(parseLayout(DEFAULT_SEGMENTS)).toEqual([['limit5h', 'limit7d', 'limitSpend'], ['ctx'], ['cost'], ['cache']])
     expect(parseLayout('a+b+c')).toEqual([['a', 'b', 'c']])
     expect(parseLayout('a,b,c')).toEqual([['a'], ['b'], ['c']])
   })

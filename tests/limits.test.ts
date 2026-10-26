@@ -3,8 +3,8 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import type { BarData } from '../hooks/register'
 import { dayAndTime, fixedLocalTime, parseTime, systemLocalTime, timeOfDay } from '../hooks/register'
-import { limit5h, limit7d, limitSpend } from '../hooks/segments'
-import { colorOf, ctxOf, drawOf, EMPTY, FULL, join, limits, limitsResetting, RESET_5H, RESET_7D } from './fixtures'
+import { limit5h, limit7d, limitSpend, windowState } from '../hooks/segments/limits'
+import { colorOf, ctxOf, drawOf, EMPTY, ENTERPRISE, FULL, join, limits, limitsResetting, RESET_5H, RESET_7D } from './fixtures'
 
 const at = (percent: number, form: 'wide' | 'narrow' = 'wide') =>
   limit5h.render(ctxOf({ rateLimits: limits(percent) }, form))
@@ -15,13 +15,13 @@ describe('limit segments', () => {
     expect(drawOf('limit5h', ctxOf(FULL))).toBe('5h ━━──────  25% ↻12:20')
     expect(drawOf('limit7d', ctxOf(FULL))).toBe('7d ━━━━────  50% ↻Mon 09:00')
     // The spend limit has no reset time.
-    expect(drawOf('limitSpend', ctxOf(FULL))).toBe('spend ━───────  10%')
+    expect(drawOf('limitSpend', ctxOf(ENTERPRISE))).toBe('spend ━───────  10%')
   })
 
   test('draw the percentage alone on a narrow bar', async () => {
     expect(drawOf('limit5h', ctxOf(FULL, 'narrow'))).toBe('5h  25%')
     expect(drawOf('limit7d', ctxOf(FULL, 'narrow'))).toBe('7d  50%')
-    expect(drawOf('limitSpend', ctxOf(FULL, 'narrow'))).toBe('spend  10%')
+    expect(drawOf('limitSpend', ctxOf(ENTERPRISE, 'narrow'))).toBe('spend  10%')
   })
 
   test('keep the meter and reset time on a crowded (not narrow) bar', async () => {
@@ -33,14 +33,13 @@ describe('limit segments', () => {
     expect(drawOf('limit5h', ctxOf(EMPTY))).toBe('5h ────────  --% ↻--:--')
     expect(drawOf('limit7d', ctxOf(EMPTY))).toBe('7d ────────  --% ↻--- --:--')
     expect(drawOf('limit7d', ctxOf(EMPTY, 'narrow'))).toBe('7d  --%')
-    // Only the 5h window has a reading: the 7d segment still has a placeholder.
-    expect(drawOf('limit7d', ctxOf({ rateLimits: limits(40) }))).toBe('7d ────────  --% ↻--- --:--')
   })
 
   test('take the same width with and without data, in every form', async () => {
     for (const segment of [limit5h, limit7d, limitSpend]) {
       for (const form of ['wide', 'crowded', 'narrow'] as const) {
-        const empty = join(segment.render(ctxOf(EMPTY, form)))
+        // The spend limit has no placeholder: its width is that of its first figure.
+        const empty = join(segment.render(ctxOf(segment === limitSpend ? resetting(limits(0, 0, 0)) : EMPTY, form)))
         for (const percent of [0, 5, 50, 99, 100]) {
           for (const data of [
             resetting(limits(percent, percent, percent)),
@@ -74,6 +73,42 @@ describe('limit segments', () => {
   test('draw the placeholder uncolored', async () => {
     expect(limit5h.render(ctxOf(EMPTY))!.every(r => r.color === undefined)).toBe(true)
     expect(limit7d.render(ctxOf(EMPTY))!.every(r => r.color === undefined)).toBe(true)
+  })
+})
+
+describe('the windows an account has', () => {
+  test('read a window as reported, absent once a response came without it, or unknown before', async () => {
+    expect(windowState(FULL, 'five_hour')).toBe('yes')
+    expect(windowState(FULL, 'spend_limit')).toBe('no')
+    expect(windowState(ENTERPRISE, 'five_hour')).toBe('no')
+    expect(windowState(ENTERPRISE, 'spend_limit')).toBe('yes')
+    expect(windowState(EMPTY, 'five_hour')).toBe('unknown')
+    // A response with no window at all (an API key, a seat with no limits).
+    expect(windowState({ rateLimits: [], lastResponseAt: 0 }, 'five_hour')).toBe('no')
+  })
+
+  test('draw nothing for the 5h and 7d windows on an Enterprise seat', async () => {
+    expect(limit5h.render(ctxOf(ENTERPRISE))).toBeNull()
+    expect(limit7d.render(ctxOf(ENTERPRISE, 'narrow'))).toBeNull()
+  })
+
+  test('draw nothing for the spend limit on a Pro or Max plan', async () => {
+    expect(limitSpend.render(ctxOf(FULL))).toBeNull()
+    expect(limitSpend.render(ctxOf({ rateLimits: limits(25, 50) }))).toBeNull()
+  })
+
+  test('draw the 5h and 7d placeholders, and no spend limit, before the first response', async () => {
+    expect(drawOf('limit5h', ctxOf(EMPTY))).toBe('5h ────────  --% ↻--:--')
+    expect(limitSpend.render(ctxOf(EMPTY))).toBeNull()
+  })
+
+  test('draw nothing for a window the response left out', async () => {
+    // Only the 5h window has a reading: the account has no 7d window.
+    expect(limit7d.render(ctxOf({ rateLimits: limits(40) }))).toBeNull()
+    // No window at all after a response: no limit segment draws.
+    for (const segment of [limit5h, limit7d, limitSpend]) {
+      expect(segment.render(ctxOf({ rateLimits: [], lastResponseAt: 0 }))).toBeNull()
+    }
   })
 })
 

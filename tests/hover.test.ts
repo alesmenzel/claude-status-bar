@@ -23,7 +23,7 @@ const hoverOf = (runs: readonly Run[]) => runs.find(r => r.hoverRuns !== undefin
 
 describe('the default segments', () => {
   test('show the legend on hover over ctx, not beside it', async () => {
-    expect(DEFAULT_SEGMENTS).toBe('limit5h+limit7d,ctx,cost,cache')
+    expect(DEFAULT_SEGMENTS).toBe('limit5h+limit7d+limitSpend,ctx,cost,cache')
     expect(LAYOUT.flat()).not.toContain('legend')
     const groups = fit(LAYOUT, BUILTINS, { data: FULL, now: 0, columns: 200, budgetUsd: 10, ttlMs: HOUR, localTime: UTC })
     expect(groups.map(join).join('')).not.toContain('■')
